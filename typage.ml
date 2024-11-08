@@ -29,7 +29,9 @@ type env = (string * ptype) list
 let rec cherche_type (v : string) (e : env) : ptype =
   match e with
   | [] -> failwith "Variable non trouvée"
-  | (x,t)::q -> if x=v then t else cherche_type v q
+  | (x, t)::q -> 
+      if x = v then instancier t (* Instancier le type généralisé *)
+      else cherche_type v q
 
 
 let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
@@ -232,22 +234,32 @@ and variables_libres (ty : ptype) : string list =
   | Nat -> []
   | List t -> variables_libres t
   | ForAll (x, t) -> List.filter (fun v -> v <> x) (variables_libres t)
-  | Prod (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
-  | Sum (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
+
+(* Supprimer les doublons dans une liste *)
+and unique lst =
+  List.fold_left (fun acc x -> if List.mem x acc then acc else x :: acc) [] lst
+
 (* Fonction de généralisation d'un type à partir de l'environnement *)
 and generaliser (ty : ptype) (env : env) : ptype =
-  (* Récupérer les variables présentes dans l'environnement *)
-  let env_vars = List.map fst env in
+  (* Récupérer les variables libres dans les types de l'environnement *)
+  let env_vars = List.concat_map (fun (_, t) -> variables_libres t) env in
   print_endline ("Variables de l'environnement: " ^ (String.concat ", " env_vars));
 
   (* Trouver les variables libres dans le type qui ne sont pas dans l'environnement *)
-  let libres = List.filter (fun v -> not (List.mem v env_vars)) (variables_libres ty) in
-  print_endline ("Variables libres: " ^ (String.concat ", " libres));
+  let libres = List.filter (fun v -> not (List.mem v env_vars)) (variables_libres ty) |> unique in
+  print_endline ("Variables libres après suppression des doublons: " ^ (String.concat ", " libres));
 
-  (* Ajouter ForAll autour de ty pour chaque variable libre trouvée *)
+  (* Ajouter ForAll autour de ty pour chaque variable libre non liée trouvée *)
   let res = List.fold_right (fun x t -> ForAll (x, t)) libres ty in
-  print_endline ("Type généralisé: " ^ (print_type ty));
+  print_endline ("Type généralisé: " ^ (print_type res));
   res
+
+and instancier (t : ptype) : ptype =
+  match t with
+  | ForAll (x, t1) -> 
+      let nouvelle_var_type = Var (nouvelle_var_t ()) in
+      substitution_t x nouvelle_var_type (instancier t1)
+  | _ -> t
 
 
 
@@ -412,7 +424,7 @@ and solve_equations_with_timeout (eqs : equa) (timeout_duration : float) : (equa
     (* Combine les équations sans ty avec celles contenant ty à la fin *)
     let new_eqs = eqs_without_ty @ eqs_with_ty in
     
-    print_endline "Équations générées:";
+    print_endline "Équations générées A RESOUDRE:";
     List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) equations;
   
     match solve_equations_with_timeout new_eqs 2.0 with
@@ -501,6 +513,7 @@ and check_type (t : ptype) : bool =
     let exemple2 = Abs ("x", Switch (Var "x", "y", Prod (Var "y", Add (Var "y", Int 2)), Prod (Add (Var "y", Int 1), Sub (Var "y", Int 1)))) in
     let exemple2 = App (exemple2, G (Int 1)) in
     test_case "Exemple2" exemple2
+    
     
     
 

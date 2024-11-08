@@ -18,7 +18,7 @@ let rec print_type (t : ptype) : string =
 
 let compteur_var_t : int ref = ref 0
 let nouvelle_var_t () : string = compteur_var_t := ! compteur_var_t + 1;
-"T"^( string_of_int ! compteur_var_t )
+  "T"^( string_of_int ! compteur_var_t )
 
 type equa = (ptype * ptype) list
 
@@ -27,23 +27,25 @@ type env = (string * ptype) list
 let rec cherche_type (v : string) (e : env) : ptype =
   match e with
   | [] -> failwith "Variable non trouvée"
-  | (x,t)::q -> if x=v then t else cherche_type v q
+  | (x, t)::q -> 
+      if x = v then instancier t (* Instancier le type généralisé *)
+      else cherche_type v q
 
 
-let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
+and genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
   (* print_endline ("Génération d'équations pour: " ^ (print_term te) ^ " : " ^ (print_type ty)); *)
   match te with
   | Var v ->
       let tv = cherche_type v e in
-      (* print_endline ("equation généré: " ^ (print_type tv) ^ " = " ^ (print_type ty)); *)
+      print_endline ("equation généré: " ^ (print_type tv) ^ " = " ^ (print_type ty));
       [(tv, ty)]
   | App (t1, t2) ->
       let ta = Var(nouvelle_var_t()) in (* type frais pour l'argument *)
       let eq1 = genere_equa t1 (Arr(ta, ty)) e in (* type de t1 doit être ta -> ty *)
       let eq2 = genere_equa t2 ta e in (* type de t2 doit être ta *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
-      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2; *)
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
 
       eq1 @ eq2
   | Abs (x, t) ->
@@ -51,14 +53,14 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let tr = Var(nouvelle_var_t()) in (* type frais pour le retour *)
       let eq1 = [(ty, Arr(ta, tr))] in (* le type de l'abstraction est ta -> tr *)
       let eq2 = genere_equa t tr ((x, ta)::e) in (* type du corps avec x:ta dans l'env *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
-      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2; *)
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
 
       eq1 @ eq2
   | Int _ ->
     (* print_endline ("équation généré: Nat = " ^ (print_type ty)); *)
-    [(ty, Nat)]
+      [(ty, Nat)]
 
   | Add (t1, t2) | Sub (t1, t2) | Mul (t1, t2) ->
     (* let ta = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour t1 *)
@@ -70,16 +72,19 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
     List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
     print_endline ("équation généré: " ^ (print_type ty) ^ " = Nat->Nat->Nat"); *)
     (ty,  Arr(Nat, Arr(Nat, Nat))) :: eq1 @ eq2 (* le type de l'opération est Nat -> Nat -> Nat *)
-     *)
-     let ta = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour t1 *)
+      *)
+      let ta = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour t1 *)
       let tr = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour t2 *)
       let eq1 = genere_equa t1 ta e in (* t1 doit être de type Nat *)
       let eq2 = genere_equa t2 tr e in (* t2 doit être de type Nat *)
-
+      print_endline ("équations généré: ");
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
+      print_endline ("équation généré: " ^ (print_type ty) ^ " = Nat->Nat->Nat");
       [(ty, Nat)] @ eq1 @ eq2
   | Nil ->
       let x = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour X *)
-      (* print_endline ("équation généré: " ^ (print_type ty) ^ " = List " ^ (print_type x)); *)
+      print_endline ("équation généré: " ^ (print_type ty) ^ " = List " ^ (print_type x));
       [(ty, List x)]  (* le type de Nil est [X] *)
 
   | Cons (t1, t2) ->
@@ -87,10 +92,10 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let eq1 = genere_equa t1 x e in         (* t1 doit être de type X *)
       let eq2 = genere_equa t2 (List x) e in  (* t2 doit être de type [X] *)
       let eq3 = [(ty, List x)] in             (* le type cible est [X] *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
-      print_endline ("équation généré: " ^ (print_type ty) ^ " = List " ^ (print_type x)); *)
+      print_endline ("équation généré: " ^ (print_type ty) ^ " = List " ^ (print_type x));
 
       eq1 @ eq2 @ eq3
 
@@ -99,18 +104,18 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let x = Var (nouvelle_var_t ()) in
       let eq1 = genere_equa t1 (List x) e in  (* t1 doit être une liste de X *)
       let eq2 = [(ty, x)] in  (* le type cible est X *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
-      print_endline ("équation généré: " ^ (print_type ty) ^ " = " ^ (print_type x)); *)
+      print_endline ("équation généré: " ^ (print_type ty) ^ " = " ^ (print_type x));
       eq1 @ eq2
 
   | Tail t1 ->
       let x = Var (nouvelle_var_t ()) in
       let eq1 = genere_equa t1 (List x) e in  (* t1 doit être une liste *)
       let eq2 = [(ty, List x)] in             (* le type cible est une liste *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
-      print_endline ("équation généré: " ^ (print_type ty) ^ " = List " ^ (print_type x));       *)
+      print_endline ("équation généré: " ^ (print_type ty) ^ " = List " ^ (print_type x));      
       eq1 @ eq2
   
 
@@ -118,10 +123,10 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let eq1 = genere_equa cond Nat e in (* condition doit être de type Nat *)
       let eq2 = genere_equa then_branch ty e in (* then_branch doit être de type T *)
       let eq3 = genere_equa else_branch ty e in (* else_branch doit aussi être de type T *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
-      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq3; *)
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq3;
 
       eq1 @ eq2 @ eq3
 
@@ -129,10 +134,10 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let eq1 = genere_equa cond (List (Var (nouvelle_var_t ())) ) e in (* condition doit être de type liste *)
       let eq2 = genere_equa then_branch ty e in (* then_branch doit être de type T *)
       let eq3 = genere_equa else_branch ty e in (* else_branch doit aussi être de type T *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
       List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
-      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq3; *)
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq3;
 
       eq1 @ eq2 @ eq3
 
@@ -142,22 +147,26 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let eq1 = (ty, Arr (t1, t2)) in  (* T_i = t1 -> t2 *)
       let e_new = (x, Arr (t1, t2))::e in  (* Ajouter x : t1 à l'environnement *)
       let eq2 = genere_equa body (Arr (t1, t2)) e_new in  (* Générer les équations pour le corps *)
-      (* print_endline ("équations généré: ");
+      print_endline ("équations généré: ");
       print_endline ((print_type ty) ^ " = " ^ (print_type (Arr (t1, t2))));
-      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2; *)
+      List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
 
       eq1 :: eq2  (* Retourne les équations *)
 
   | Let (x, e1, e2) ->
+      print_endline ("Génération d'équations pour let " ^ x ^ " = " ^ (print_term e1) ^ " in " ^ (print_term e2));
       let t0 = infer_type e1 e in  (* Inférer le type de e1 *)
+    
     (* Généraliser t0 : obtenir ∀X1, ..., Xk.T0 *)
       let t0_gen = match t0 with
-        | Some t -> generaliser t e
+        | Some t -> 
+            print_endline ("Type inféré de " ^ x ^ ": " ^ (print_type t));
+            generaliser t e
         | None -> failwith "Type non inférable" in
       let new_env = (x, t0_gen)::e in  (* Ajouter x : ∀X1, ..., Xk.T0 à l'environnement *)
-      (* print_endline ("Type généralisé de " ^ x ^ ": " ^ (print_type t0_gen)); *)
+      print_endline ("Type généralisé de " ^ x ^ ": " ^ (print_type t0_gen));
       genere_equa e2 ty new_env  (* Générer les équations pour e2 avec le nouvel environnement *)
-    
+      
 
   
 
@@ -172,7 +181,6 @@ and est_libre (v : string) (ty : ptype) : bool =
   
 
   
-
 (* Fonction auxiliaire pour trouver les variables libres d'un type *)
 and variables_libres (ty : ptype) : string list =
   match ty with
@@ -182,21 +190,31 @@ and variables_libres (ty : ptype) : string list =
   | List t -> variables_libres t
   | ForAll (x, t) -> List.filter (fun v -> v <> x) (variables_libres t)
 
+(* Supprimer les doublons dans une liste *)
+and unique lst =
+  List.fold_left (fun acc x -> if List.mem x acc then acc else x :: acc) [] lst
+
 (* Fonction de généralisation d'un type à partir de l'environnement *)
 and generaliser (ty : ptype) (env : env) : ptype =
-  (* Récupérer les variables présentes dans l'environnement *)
-  let env_vars = List.map fst env in
-  (* print_endline ("Variables de l'environnement: " ^ (String.concat ", " env_vars)); *)
+  (* Récupérer les variables libres dans les types de l'environnement *)
+  let env_vars = List.concat_map (fun (_, t) -> variables_libres t) env in
+  print_endline ("Variables de l'environnement: " ^ (String.concat ", " env_vars));
 
   (* Trouver les variables libres dans le type qui ne sont pas dans l'environnement *)
-  let libres = List.filter (fun v -> not (List.mem v env_vars)) (variables_libres ty) in
-  (* print_endline ("Variables libres: " ^ (String.concat ", " libres)); *)
+  let libres = List.filter (fun v -> not (List.mem v env_vars)) (variables_libres ty) |> unique in
+  print_endline ("Variables libres après suppression des doublons: " ^ (String.concat ", " libres));
 
-  (* Ajouter ForAll autour de ty pour chaque variable libre trouvée *)
+  (* Ajouter ForAll autour de ty pour chaque variable libre non liée trouvée *)
   let res = List.fold_right (fun x t -> ForAll (x, t)) libres ty in
-  (* print_endline ("Type généralisé: " ^ (print_type ty)); *)
+  print_endline ("Type généralisé: " ^ (print_type res));
   res
 
+and instancier (t : ptype) : ptype =
+  match t with
+  | ForAll (x, t1) -> 
+      let nouvelle_var_type = Var (nouvelle_var_t ()) in
+      substitution_t x nouvelle_var_type (instancier t1)
+  | _ -> t
 
 
 (* fonction occur check qui vérifie si une variable appartient à un type. *)
@@ -261,37 +279,37 @@ and unif_step (eqs : equa) (substitutions_acc : env) : (equa * env) option =
   | [] -> Some ([], substitutions_acc)
   
   | (t1, t2)::rest when t1 = t2 -> 
-      (* print_endline ("Équation résolue: " ^ (print_type t1) ^ " = " ^ (print_type t2)); *)
+      print_endline ("Équation résolue: " ^ (print_type t1) ^ " = " ^ (print_type t2));
       unif_step rest substitutions_acc 
         
   | (Var x, t2)::rest when not (occur_check x t2) -> 
-      (* print_endline ("Unification1: " ^ x ^ " avec " ^ (print_type t2)); *)
+      print_endline ("Unification1: " ^ x ^ " avec " ^ (print_type t2));
       let new_eqs = substitution_equa x t2 rest in
       let new_substitutions = (x, t2) :: substitutions_acc in
       Some (new_eqs, new_substitutions)
 
   | (t1, Var x)::rest when not (occur_check x t1) -> 
-      (* print_endline ("Unification2: " ^ (print_type t1) ^ " avec " ^ x); *)
+      print_endline ("Unification2: " ^ (print_type t1) ^ " avec " ^ x);
       let new_eqs = substitution_equa x t1 rest in
       let new_substitutions = (x, t1) :: substitutions_acc in
       Some (new_eqs, new_substitutions)
 
   | (Arr (t1a, t1b), Arr (t2a, t2b))::rest ->
-      (* print_endline ("Unification3: " ^ (print_type (Arr (t1a, t1b))) ^ " avec " ^ (print_type (Arr (t2a, t2b)))); *)
+      print_endline ("Unification3: " ^ (print_type (Arr (t1a, t1b))) ^ " avec " ^ (print_type (Arr (t2a, t2b))));
       Some ((t1a, t2a)::(t1b, t2b)::rest, substitutions_acc)
 
   | (List t1, List t2)::rest ->
-      (* print_endline ("Unification4: " ^ (print_type (List t1)) ^ " avec " ^ (print_type (List t2))); *)
+      print_endline ("Unification4: " ^ (print_type (List t1)) ^ " avec " ^ (print_type (List t2)));
       Some ((t1, t2)::rest, substitutions_acc)
 
   | (ForAll (x, t1), t2)::rest ->
-      (* print_endline ("Unification5: " ^ (print_type (ForAll (x, t1))) ^ " avec " ^ (print_type t2)); *)
+      print_endline ("Unification5: " ^ (print_type (ForAll (x, t1))) ^ " avec " ^ (print_type t2));
       let t1_renamed = rename_vars t1 [] in
       let t1_opened = substitution_t x t1_renamed t2 in
       Some ((t1_opened, t2)::rest, substitutions_acc)
 
   | (t1, ForAll (x, t2))::rest ->
-      (* print_endline ("Unification6: " ^ (print_type t1) ^ " avec " ^ (print_type (ForAll (x, t2)))); *)
+      print_endline ("Unification6: " ^ (print_type t1) ^ " avec " ^ (print_type (ForAll (x, t2))));
       let t2_renamed = rename_vars t2 [] in
       let t2_opened = substitution_t x t2_renamed t1 in
       Some ((t1, t2_opened)::rest, substitutions_acc)
@@ -330,40 +348,37 @@ and solve_equations_with_timeout (eqs : equa) (timeout_duration : float) : (equa
   with
   | Timeout -> None
 
-  and contains_type target_ty t =
-    t = target_ty ||
-    match t with
-    | Arr(t1, t2) -> contains_type target_ty t1 || contains_type target_ty t2
-    | _ -> false
+and contains_type target_ty t =
+  t = target_ty ||
+  match t with
+  | Arr(t1, t2) -> contains_type target_ty t1 || contains_type target_ty t2
+  | _ -> false
   
   (* Type inference function *)
-  and infer_type (te : pterm) (env : env) : ptype option =
-    let ty = Var (nouvelle_var_t ()) in
+and infer_type (te : pterm) (env : env) : ptype option =
+  let ty = Var (nouvelle_var_t ()) in
     (* print_endline ("Type cible: " ^ (print_type ty)); *)
   
     (* Génère les équations à partir du terme et du type cible *)
-    let equations = genere_equa te ty env in
+  let equations = genere_equa te ty env in
   
     (* Sépare les équations contenant le type cible (ty) des autres équations *)
-    let (eqs_with_ty, eqs_without_ty) =
-      List.partition (fun (t1, t2) ->
-          contains_type ty t1 || contains_type ty t2) equations in
+  let (eqs_with_ty, eqs_without_ty) =
+    List.partition (fun (t1, t2) ->
+        contains_type ty t1 || contains_type ty t2) equations in
   
     (* Combine les équations sans ty avec celles contenant ty à la fin *)
-    let new_eqs = eqs_without_ty @ eqs_with_ty in
+  let new_eqs = eqs_without_ty @ eqs_with_ty in
     
-    (* print_endline "Équations générées:";
-    List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) equations; *)
+  print_endline "Équations générée A RESOUDREs:";
+  List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) equations;
   
-    match solve_equations_with_timeout new_eqs 2.0 with
-    | None -> None
-    | Some (eqs, substitutions) -> 
-        let final_type = apply_substitutions ty substitutions in
-        Some final_type
+  match solve_equations_with_timeout new_eqs 2.0 with
+  | None -> None
+  | Some (eqs, substitutions) -> 
+      let final_type = apply_substitutions ty substitutions in
+      Some final_type
   
-and sum n =
-  if n = 0 then 0
-  else n + sum (n - 1)
 
 (* vérifie si un type est bien formé *)
 and check_type (t : ptype) : bool =
@@ -401,7 +416,7 @@ let test_typing () =
   test_case "addition" (Add(Int 3, Int 4));
     
     (* Soustraction *)
-      
+  test_case "soustraction" (Sub(Int 10, Int 5));  
     
     (* Multiplication *)
   test_case "multiplication" (Mul(Int 3, Int 4)); 
@@ -486,16 +501,50 @@ let test_typing () =
   
     (* 6. Tests des constructions Let *)
   print_endline "\n=== Tests Let ===";
+
+      (* Let avec fonction let f = λx.x in f 42 *)
+  let let_func =
+    Let("f",
+        Abs("x", Var "x"),
+        App(Var "f", Int 42)
+       )
+  in
+  test_case "let avec fonction" let_func;
     
-    (* Let polymorphe *)
+  
   let let_poly = 
     Let("id", 
         Abs("x", Var "x"),
-        App(App(Var "id", Int 42), App(Var "id", Nil))
+        App(App(Var "id", Var "id"), Int 42)
        )
   in
-  test_case "let polymorphe" let_poly;
+  test_case "Let polymorphe" let_poly;
   
+  (* let map = fix map.λf xs.if xs=[] then [] else (f (head xs))::(map f (tail xs)) 
+   in let id = λx.x in map id [1, 2, 3]
+  *)
+  let let_map_poly =
+    Let("map",
+        Fix("map",
+            Abs("f",
+                Abs("xs",
+                    IfEmpty(Var "xs",
+                            Nil,
+                            Cons(App(Var "f", Head(Var "xs")),
+                                 App(App(Var "map", Var "f"), Tail(Var "xs"))
+                                )
+                           )
+                   )
+               )
+           ),
+        Let("id",
+            Abs("x", Var "x"),
+            App(App(Var "map", Var "id"), Cons(Int 1, Cons(Int 2, Cons(Int 3, Nil))))
+           )
+       )
+  in
+  test_case "map polymorphe avec identité" let_map_poly;
+
     (* 7. Tests de composition de fonctions *)
   print_endline "\n=== Tests composition ===";
     
