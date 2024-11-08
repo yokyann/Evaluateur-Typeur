@@ -7,6 +7,7 @@ type ptype =
   | List of ptype                      (* constructeur de type pour les listes *)
   | ForAll of string * ptype           (* type polymorphe ∀X.T *)
   | Prod of ptype * ptype              (* type produit T1 * T2 *)
+  | Sum of ptype * ptype               (* type somme T1 + T2 *)
 (* Fonction d'affichage améliorée *)
 let rec print_type (t : ptype) : string =
   match t with
@@ -16,8 +17,8 @@ let rec print_type (t : ptype) : string =
   | List t1 -> "List(" ^ (print_type t1) ^ ")"
   | ForAll (x, t1) -> "∀" ^ x ^ "." ^ (print_type t1)
   | Prod (t1, t2) -> "(" ^ (print_type t1) ^ " * " ^ (print_type t2) ^ ")"
-
-let compteur_var_t : int ref = ref 0
+  | Sum (t1, t2) -> "(" ^ (print_type t1) ^ " + " ^ (print_type t2) ^ ")"
+  let compteur_var_t : int ref = ref 0
 let nouvelle_var_t () : string = compteur_var_t := ! compteur_var_t + 1;
 "T"^( string_of_int ! compteur_var_t )
 
@@ -69,7 +70,7 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
     List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
     List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
     print_endline ("équation généré: " ^ (print_type ty) ^ " = Nat->Nat->Nat");
-    (ty,  Arr(Nat, Arr(Nat, Nat))) :: eq1 @ eq2 (* le type de l'opération est Nat -> Nat -> Nat *)
+    (ty, Nat) :: eq1 @ eq2 (* le type de l'opération est Nat -> Nat -> Nat *)
     
      (* let ta = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour t1 *)
       let tr = Var (nouvelle_var_t ()) in  (* Nouvelle variable de type pour t2 *)
@@ -157,6 +158,8 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
       let new_env = (x, t0_gen)::e in  (* Ajouter x : ∀X1, ..., Xk.T0 à l'environnement *)
       print_endline ("Type généralisé de " ^ x ^ ": " ^ (print_type t0_gen));
       genere_equa e2 ty new_env  (* Générer les équations pour e2 avec le nouvel environnement *)
+
+  (* Type Produit *)
   | Prod (e1, e2) ->
       let t1 = Var (nouvelle_var_t ()) in  (* Type de e1 *)
       let t2 = Var (nouvelle_var_t ()) in  (* Type de e2 *)
@@ -183,8 +186,32 @@ let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
     print_endline ("équations généré ProjD: ");
     List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
     [(ty, t2)] @ eq1  (* Le type de la projection droite est t2 *)
-
-  | _ -> failwith "Type non géré"
+  (* Type Somme *)
+  | Switch (e1, x, eg, ed) ->
+    let t2 = Var (nouvelle_var_t ()) in  (* Type gauche de la somme *)
+    let t3 = Var (nouvelle_var_t ()) in  (* Type droit de la somme *)
+    let eq1 = genere_equa e1 (Sum (t2, t3)) e in  (* Générer les équations pour e1 *)
+    let eq2 = genere_equa eg ty ((x, t2)::e) in  (* Générer les équations pour eg avec x:t2 dans l'environnement *)
+    let eq3 = genere_equa ed ty ((x, t3)::e) in  (* Générer les équations pour ed avec x:t3 dans l'environnement *)
+    print_endline ("équations généré Switch: ");
+    List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
+    List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq2;
+    List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq3;
+    eq1 @ eq2 @ eq3
+  | G e1 ->
+    let t1 = Var (nouvelle_var_t ()) in  (* Type de l'élément gauche de la somme *)
+    let t2 = Var (nouvelle_var_t ()) in  (* Type de l'élément droit de la somme *)
+    let eq1 = genere_equa e1 t1 e in  (* Générer les équations pour e1 *)
+    print_endline ("équations généré G: ");
+    List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
+    eq1 @ [(ty, Sum(t1,t2))]  (* Le type de la branche gauche est t1 *)
+  | D e1 ->
+    let t1 = Var (nouvelle_var_t ()) in  (* Type de l'élément gauche de la somme *)
+    let t2 = Var (nouvelle_var_t ()) in  (* Type de l'élément droit de la somme *)
+    let eq1 = genere_equa e1 t2 e in  (* Générer les équations pour e1 *)
+    print_endline ("équations généré D: ");
+    List.iter (fun (t1, t2) -> print_endline ((print_type t1) ^ " = " ^ (print_type t2))) eq1;
+    eq1 @ [(ty, Sum(t1,t2))]  (* Le type de la branche droite est t2 *)
 
 (* Vérifie si une variable est libre dans un type *)
 and est_libre (v : string) (ty : ptype) : bool =
@@ -195,8 +222,7 @@ and est_libre (v : string) (ty : ptype) : bool =
   | List t -> est_libre v t
   | ForAll (x, t) -> if x = v then false else est_libre v t
   | Prod (t1, t2) -> est_libre v t1 || est_libre v t2
-
-  
+  | Sum (t1, t2) -> est_libre v t1 || est_libre v t2
 
 (* Fonction auxiliaire pour trouver les variables libres d'un type *)
 and variables_libres (ty : ptype) : string list =
@@ -207,6 +233,7 @@ and variables_libres (ty : ptype) : string list =
   | List t -> variables_libres t
   | ForAll (x, t) -> List.filter (fun v -> v <> x) (variables_libres t)
   | Prod (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
+  | Sum (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
 (* Fonction de généralisation d'un type à partir de l'environnement *)
 and generaliser (ty : ptype) (env : env) : ptype =
   (* Récupérer les variables présentes dans l'environnement *)
@@ -233,7 +260,7 @@ and occur_check (x : string) (t : ptype) : bool =
   | List t -> occur_check x t
   | ForAll (y, t) -> if x = y then false else occur_check x t
   | Prod (t1, t2) -> (occur_check x t1) || (occur_check x t2)
-
+  | Sum (t1, t2) -> (occur_check x t1) || (occur_check x t2)
 (* substitue une variable de type par un type à l'intérieur d'un autre type *)
 and substitution_t (x : string) (t : ptype) (ty : ptype) : ptype =
   match ty with
@@ -243,8 +270,8 @@ and substitution_t (x : string) (t : ptype) (ty : ptype) : ptype =
   | List t1 -> List (substitution_t x t t1)
   | ForAll (y, t1) -> if x = y then ForAll (y, t1) else ForAll (y, substitution_t x t t1)
   | Prod (t1, t2) -> Prod (substitution_t x t t1, substitution_t x t t2)
-
-(* substitue une variable de type par un type partout dans un système d'équation *)
+  | Sum (t1, t2) -> Sum (substitution_t x t t1, substitution_t x t t2)
+  (* substitue une variable de type par un type partout dans un système d'équation *)
 and substitution_equa (x : string) (t : ptype) (eq : equa) : equa =
   match eq with
   | [] -> []
@@ -263,8 +290,9 @@ and rename_vars (t : ptype) (renaming : (string * string) list) : ptype =
       let new_x = nouvelle_var_t () in
       ForAll (new_x, rename_vars t1 ((x, new_x)::renaming))
   | Prod (t1, t2) -> Prod (rename_vars t1 renaming, rename_vars t2 renaming)
+  | Sum (t1, t2) -> Sum (rename_vars t1 renaming, rename_vars t2 renaming)
 
-(* 1 étape d'unification un système d'équations *)
+  (* 1 étape d'unification un système d'équations *)
 
 (* Helper function to apply substitutions *)
 and apply_substitutions (t : ptype) (substitutions : env) : ptype =
@@ -280,6 +308,7 @@ and apply_substitutions (t : ptype) (substitutions : env) : ptype =
   | ForAll (x, t1) -> ForAll (x, apply_substitutions t1 substitutions)
   | Nat -> Nat
   | Prod (t1, t2) -> Prod (apply_substitutions t1 substitutions, apply_substitutions t2 substitutions)
+  | Sum (t1, t2) -> Sum (apply_substitutions t1 substitutions, apply_substitutions t2 substitutions)
 (* Modified unification step with substitutions accumulator *)
 and unif_step (eqs : equa) (substitutions_acc : env) : (equa * env) option =
   match eqs with
@@ -324,8 +353,11 @@ and unif_step (eqs : equa) (substitutions_acc : env) : (equa * env) option =
   | (Prod (t1a, t1b), Prod (t2a, t2b))::rest ->
       print_endline ("Unification7: " ^ (print_type (Prod (t1a, t1b))) ^ " avec " ^ (print_type (Prod (t2a, t2b))));
       Some ((t1a, t2a)::(t1b, t2b)::rest, substitutions_acc)
-  | _ -> None
+  | (Sum (t1a, t1b), Sum (t2a, t2b))::rest ->
+      print_endline ("Unification8: " ^ (print_type (Sum (t1a, t1b))) ^ " avec " ^ (print_type (Sum (t2a, t2b))));
+      Some ((t1a, t2a)::(t1b, t2b)::rest, substitutions_acc)
 
+  | _ -> None
 
 (* Complete unification with timeout and substitutions *)
 and unif (eqs : equa) (substitutions_acc : env) : (equa * env) option =
@@ -400,7 +432,7 @@ and check_type (t : ptype) : bool =
   | List t1 -> check_type t1
   | ForAll (_, t1) -> check_type t1
   | Prod (t1, t2) -> (check_type t1) && (check_type t2)
-
+  | Sum (t1, t2) -> (check_type t1) && (check_type t2)
   ;; (* Test *)
     (* Tests du système de typage *)
   let test_typing () =
@@ -448,14 +480,30 @@ and check_type (t : ptype) : bool =
     let prod_id_k : pterm = Prod (id, App (id, k)) in
     test_case "Produit de l'identité et de K" prod_id_k;
     
-    (* (λc.(Π1 c) (Π2 c)) (I , I K ) *)
     let c = Abs("c", App (ProjG (Var "c"), ProjD (Var "c"))) in
-     (* λc.(Π1 c) (Π2 c) *)
-    test_case "Fonction qui applique les projections 1 et 2 à une paire" c;
+    test_case "Abs (c, ProJG c, ProJD c)" c;
 
     let term = App (c, prod_id_k) in
-    test_case "Application de la projection 1 et 2 à une paire" term
+    test_case "App (c, Prod (id, App (id, k)))" term;
+    
+
+    (* test simple sum *)
+    let sum : pterm = Switch (G (Int 1), "x", Add (Var "x", Int 2), Add (Var "x", Int 3)) in
+    test_case "Switch (G 1) x, x + 2, x + 3)" sum;
+    
+    (* test sum avec une abstraction *)
+
+    (* (λx.sw x ▷ y : y 2 + y 3 4) (g : I ) *)
+    let exemple = App (Abs ("x", Switch (Var "x", "y", Add (Var "y", Int 2), Add (Var "y", Int 3))), G (id)) in
+    test_case "Exemple" exemple;
+    
+    (* (* (λx.sw x▹ y : (y,y∗2)+(y+1,y−1))(g : 1) *) *)
+    let exemple2 = Abs ("x", Switch (Var "x", "y", Prod (Var "y", Add (Var "y", Int 2)), Prod (Add (Var "y", Int 1), Sub (Var "y", Int 1)))) in
+    let exemple2 = App (exemple2, G (Int 1)) in
+    test_case "Exemple2" exemple2
     
     
+
+
     (* Lancer tous les tests *)
   let _ = test_typing ()

@@ -369,7 +369,7 @@ print_string (print_term (ltr_cbv_norm_with_timeout test_g 100)) ;
 
 (* Test cours Sommz *)
 (* (λx.sw x ▷ y : y 2 + y 3 4) (g : I ) *)
-let exemple = App (Abs ("x", Switch (Var "x", "y", Add (Var "y", Int 2), Add (Var "y", Int 3))), G (Int 1)) in
+let exemple = App (Abs ("x", Switch (Var "x", "y", Add (Var "y", Int 2), Add (Var "y", Int 3))), G (i)) in
 print_string (print_term exemple) ;
 print_string " -> " ;
 print_string (print_term (ltr_cbv_norm_with_timeout exemple 100)) ;
