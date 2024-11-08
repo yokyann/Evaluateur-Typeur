@@ -234,7 +234,9 @@ and variables_libres (ty : ptype) : string list =
   | Nat -> []
   | List t -> variables_libres t
   | ForAll (x, t) -> List.filter (fun v -> v <> x) (variables_libres t)
-
+  | Prod (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
+  | Sum (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
+  
 (* Supprimer les doublons dans une liste *)
 and unique lst =
   List.fold_left (fun acc x -> if List.mem x acc then acc else x :: acc) [] lst
