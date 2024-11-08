@@ -34,7 +34,7 @@ let rec cherche_type (v : string) (e : env) : ptype =
       else cherche_type v q
 
 
-let rec genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
+and genere_equa (te : pterm) (ty : ptype) (e : env)  : equa =
   print_endline ("Génération d'équations pour: " ^ (print_term te) ^ " : " ^ (print_type ty));
   match te with
   | Var v ->
@@ -236,7 +236,7 @@ and variables_libres (ty : ptype) : string list =
   | ForAll (x, t) -> List.filter (fun v -> v <> x) (variables_libres t)
   | Prod (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
   | Sum (t1, t2) -> (variables_libres t1) @ (variables_libres t2)
-  
+
 (* Supprimer les doublons dans une liste *)
 and unique lst =
   List.fold_left (fun acc x -> if List.mem x acc then acc else x :: acc) [] lst
