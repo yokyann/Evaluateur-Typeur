@@ -506,4 +506,4 @@ and check_type (t : ptype) : bool =
 
 
     (* Lancer tous les tests *)
-  let _ = test_typing ()
+  let _ = test_typing () 
